@@ -21,6 +21,8 @@
     screenLeaderboard: $("#screenLeaderboard"),
     screenWin: $("#screenWin"),
     layoutGrid: $("#layoutGrid"),
+    difficultySegmented: $("#difficultySegmented"),
+    difficultyHint: $("#difficultyHint"),
     btnPlay: $("#btnPlay"),
     btnLeaderboard: $("#btnLeaderboard"),
     btnSettings: $("#btnSettings"),
@@ -48,9 +50,15 @@
   };
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰" };
+  const DIFFICULTY_HINTS = {
+    easy: "10 hints · unlimited undo · unlimited reshuffles · blocked tiles dimmed",
+    medium: "5 hints · unlimited undo · unlimited reshuffles · blocked tiles dimmed",
+    hard: "1 hint · 3 undos · 1 reshuffle · no dimming — figure out what's blocked yourself",
+  };
 
   const prefs = loadPrefs();
   let selectedLayout = prefs.lastLayout || "turtle";
+  let selectedDifficulty = prefs.difficulty || "medium";
   let gameStarted = false;
   let pendingWin = null;
 
@@ -95,8 +103,9 @@
   let hudInterval = null;
   function updateHud() {
     el.statPairs.textContent = game.pairsLeft();
-    el.btnUndo.style.opacity = game.history.length ? 1 : 0.4;
+    el.btnUndo.style.opacity = (game.history.length && game.undosUsed < game.maxUndos) ? 1 : 0.4;
     el.btnHint.style.opacity = game.hintsUsed < game.maxHints ? 1 : 0.4;
+    el.btnShuffle.style.opacity = game.reshufflesUsed < game.maxReshuffles ? 1 : 0.4;
   }
   function tickTimer() {
     if (!game.paused && gameStarted) el.statTime.textContent = fmtTime(game.elapsedMs());
@@ -128,6 +137,19 @@
   }
   buildLayoutGrid();
 
+  function buildDifficultySegmented() {
+    Array.from(el.difficultySegmented.querySelectorAll(".segBtn")).forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.difficulty === selectedDifficulty);
+      btn.onclick = () => {
+        selectedDifficulty = btn.dataset.difficulty;
+        prefs.difficulty = selectedDifficulty; savePrefs();
+        buildDifficultySegmented();
+      };
+    });
+    el.difficultyHint.textContent = DIFFICULTY_HINTS[selectedDifficulty] || "";
+  }
+  buildDifficultySegmented();
+
   function openMenu() {
     game.pause();
     showHud(false);
@@ -140,7 +162,7 @@
     showHud(true);
     hideAllScreens();
     fitCanvas(); // measure HUD/zoom-control insets now that they're visible
-    game.newGame(selectedLayout);
+    game.newGame(selectedLayout, undefined, selectedDifficulty);
     gameStarted = true;
     updateHud();
     el.statTime.textContent = "00:00";
@@ -148,7 +170,7 @@
 
   el.btnPlay.addEventListener("click", () => {
     Audio.unlock();
-    if (gameStarted && game.paused && game.layoutKey === selectedLayout && !game.finished) {
+    if (gameStarted && game.paused && game.layoutKey === selectedLayout && game.difficulty === selectedDifficulty && !game.finished) {
       showHud(true);
       hideAllScreens();
       fitCanvas();

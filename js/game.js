@@ -5,6 +5,15 @@ window.MJ = window.MJ || {};
 (function () {
   const { Dealer, Layouts, TilesData, Renderer, Leaderboard, Audio } = window.MJ;
 
+  // Difficulty changes how much assistance you get — every board is
+  // solvable regardless of difficulty (that guarantee comes from the
+  // dealer, not from these limits).
+  const DIFFICULTY_PRESETS = {
+    easy: { maxHints: 10, maxUndos: Infinity, maxReshuffles: Infinity, dimming: true },
+    medium: { maxHints: 5, maxUndos: Infinity, maxReshuffles: Infinity, dimming: true },
+    hard: { maxHints: 1, maxUndos: 3, maxReshuffles: 1, dimming: false },
+  };
+
   class Game {
     constructor(canvas, callbacks) {
       this.canvas = canvas;
@@ -16,7 +25,10 @@ window.MJ = window.MJ || {};
       this.hintTimeout = null;
       this.history = [];
       this.hintsUsed = 0;
-      this.maxHints = 5;
+      this.undosUsed = 0;
+      this.reshufflesUsed = 0;
+      this.difficulty = "medium";
+      Object.assign(this, DIFFICULTY_PRESETS.medium);
       this.movesCount = 0;
       this.startTime = null;
       this.elapsedBeforePause = 0;
@@ -29,8 +41,10 @@ window.MJ = window.MJ || {};
 
     // ---------- lifecycle ----------
 
-    newGame(layoutKey, seed) {
+    newGame(layoutKey, seed, difficulty) {
       this.layoutKey = layoutKey;
+      this.difficulty = difficulty || this.difficulty || "medium";
+      Object.assign(this, DIFFICULTY_PRESETS[this.difficulty] || DIFFICULTY_PRESETS.medium);
       const cssW = this.canvas.clientWidth || window.innerWidth;
       const cssH = this.canvas.clientHeight || window.innerHeight;
       const isPhonePortrait = cssW < 700 && cssH > cssW;
@@ -41,6 +55,8 @@ window.MJ = window.MJ || {};
       this.hintIds = null;
       this.history = [];
       this.hintsUsed = 0;
+      this.undosUsed = 0;
+      this.reshufflesUsed = 0;
       this.movesCount = 0;
       this.startTime = performance.now();
       this.elapsedBeforePause = 0;
@@ -163,10 +179,12 @@ window.MJ = window.MJ || {};
 
     undo() {
       if (this.finished || !this.history.length) return;
+      if (this.undosUsed >= this.maxUndos) { Audio.play("invalid"); return; }
       const last = this.history.pop();
       const a = this.tiles[last.aId], b = this.tiles[last.bId];
       a.removed = false; b.removed = false;
       this.selected = null;
+      this.undosUsed++;
       this.movesCount++;
       Audio.play("undo");
       this._recomputeFree();
@@ -190,6 +208,7 @@ window.MJ = window.MJ || {};
 
     shuffle() {
       if (this.finished) return;
+      if (this.reshufflesUsed >= this.maxReshuffles) { Audio.play("invalid"); return; }
       const remaining = this.remainingTiles();
       if (remaining.length < 2) return;
       const positions = remaining.map((t) => ({ col: t.col, row: t.row, level: t.level }));
@@ -200,6 +219,7 @@ window.MJ = window.MJ || {};
       });
       this.selected = null;
       this.hintIds = null;
+      this.reshufflesUsed++;
       Audio.play("shuffle");
       this._recomputeFree();
       this._draw();
@@ -219,7 +239,7 @@ window.MJ = window.MJ || {};
       this.renderer.render(this.tiles, {
         selectedId: this.selected && this.selected.id,
         hintIds: this.hintIds,
-        freeSet: this.freeSet,
+        freeSet: this.dimming ? this.freeSet : null,
       });
     }
 

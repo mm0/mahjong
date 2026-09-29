@@ -131,6 +131,9 @@ html, body {
 .layoutCard .glyph { font-size: 22px; display: block; margin-bottom: 6px; }
 .layoutCard.active { border-color: var(--accent); background: rgba(255,210,63,0.12); }
 
+#difficultySegmented { margin-top: 4px; }
+#difficultyHint { min-height: 28px; }
+
 .bigBtn {
   width: 100%;
   padding: 14px;

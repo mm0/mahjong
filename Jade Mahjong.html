@@ -146,6 +146,9 @@ html, body {
 .layoutCard .glyph { font-size: 22px; display: block; margin-bottom: 6px; }
 .layoutCard.active { border-color: var(--accent); background: rgba(255,210,63,0.12); }
 
+#difficultySegmented { margin-top: 4px; }
+#difficultyHint { min-height: 28px; }
+
 .bigBtn {
   width: 100%;
   padding: 14px;
@@ -282,6 +285,13 @@ html, body {
         <p class="subtitle">Solitaire</p>
 
         <div class="layoutGrid" id="layoutGrid"></div>
+
+        <div class="segmented" id="difficultySegmented">
+          <button data-difficulty="easy" class="segBtn">Easy</button>
+          <button data-difficulty="medium" class="segBtn active">Medium</button>
+          <button data-difficulty="hard" class="segBtn">Hard</button>
+        </div>
+        <p class="hint" id="difficultyHint"></p>
 
         <button id="btnPlay" class="bigBtn">Play</button>
         <div class="menuRow">
@@ -1390,6 +1400,15 @@ window.MJ = window.MJ || {};
 (function () {
   const { Dealer, Layouts, TilesData, Renderer, Leaderboard, Audio } = window.MJ;
 
+  // Difficulty changes how much assistance you get — every board is
+  // solvable regardless of difficulty (that guarantee comes from the
+  // dealer, not from these limits).
+  const DIFFICULTY_PRESETS = {
+    easy: { maxHints: 10, maxUndos: Infinity, maxReshuffles: Infinity, dimming: true },
+    medium: { maxHints: 5, maxUndos: Infinity, maxReshuffles: Infinity, dimming: true },
+    hard: { maxHints: 1, maxUndos: 3, maxReshuffles: 1, dimming: false },
+  };
+
   class Game {
     constructor(canvas, callbacks) {
       this.canvas = canvas;
@@ -1401,7 +1420,10 @@ window.MJ = window.MJ || {};
       this.hintTimeout = null;
       this.history = [];
       this.hintsUsed = 0;
-      this.maxHints = 5;
+      this.undosUsed = 0;
+      this.reshufflesUsed = 0;
+      this.difficulty = "medium";
+      Object.assign(this, DIFFICULTY_PRESETS.medium);
       this.movesCount = 0;
       this.startTime = null;
       this.elapsedBeforePause = 0;
@@ -1414,8 +1436,10 @@ window.MJ = window.MJ || {};
 
     // ---------- lifecycle ----------
 
-    newGame(layoutKey, seed) {
+    newGame(layoutKey, seed, difficulty) {
       this.layoutKey = layoutKey;
+      this.difficulty = difficulty || this.difficulty || "medium";
+      Object.assign(this, DIFFICULTY_PRESETS[this.difficulty] || DIFFICULTY_PRESETS.medium);
       const cssW = this.canvas.clientWidth || window.innerWidth;
       const cssH = this.canvas.clientHeight || window.innerHeight;
       const isPhonePortrait = cssW < 700 && cssH > cssW;
@@ -1426,6 +1450,8 @@ window.MJ = window.MJ || {};
       this.hintIds = null;
       this.history = [];
       this.hintsUsed = 0;
+      this.undosUsed = 0;
+      this.reshufflesUsed = 0;
       this.movesCount = 0;
       this.startTime = performance.now();
       this.elapsedBeforePause = 0;
@@ -1548,10 +1574,12 @@ window.MJ = window.MJ || {};
 
     undo() {
       if (this.finished || !this.history.length) return;
+      if (this.undosUsed >= this.maxUndos) { Audio.play("invalid"); return; }
       const last = this.history.pop();
       const a = this.tiles[last.aId], b = this.tiles[last.bId];
       a.removed = false; b.removed = false;
       this.selected = null;
+      this.undosUsed++;
       this.movesCount++;
       Audio.play("undo");
       this._recomputeFree();
@@ -1575,6 +1603,7 @@ window.MJ = window.MJ || {};
 
     shuffle() {
       if (this.finished) return;
+      if (this.reshufflesUsed >= this.maxReshuffles) { Audio.play("invalid"); return; }
       const remaining = this.remainingTiles();
       if (remaining.length < 2) return;
       const positions = remaining.map((t) => ({ col: t.col, row: t.row, level: t.level }));
@@ -1585,6 +1614,7 @@ window.MJ = window.MJ || {};
       });
       this.selected = null;
       this.hintIds = null;
+      this.reshufflesUsed++;
       Audio.play("shuffle");
       this._recomputeFree();
       this._draw();
@@ -1604,7 +1634,7 @@ window.MJ = window.MJ || {};
       this.renderer.render(this.tiles, {
         selectedId: this.selected && this.selected.id,
         hintIds: this.hintIds,
-        freeSet: this.freeSet,
+        freeSet: this.dimming ? this.freeSet : null,
       });
     }
 
@@ -1770,6 +1800,8 @@ window.MJ = window.MJ || {};
     screenLeaderboard: $("#screenLeaderboard"),
     screenWin: $("#screenWin"),
     layoutGrid: $("#layoutGrid"),
+    difficultySegmented: $("#difficultySegmented"),
+    difficultyHint: $("#difficultyHint"),
     btnPlay: $("#btnPlay"),
     btnLeaderboard: $("#btnLeaderboard"),
     btnSettings: $("#btnSettings"),
@@ -1797,9 +1829,15 @@ window.MJ = window.MJ || {};
   };
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰" };
+  const DIFFICULTY_HINTS = {
+    easy: "10 hints · unlimited undo · unlimited reshuffles · blocked tiles dimmed",
+    medium: "5 hints · unlimited undo · unlimited reshuffles · blocked tiles dimmed",
+    hard: "1 hint · 3 undos · 1 reshuffle · no dimming — figure out what's blocked yourself",
+  };
 
   const prefs = loadPrefs();
   let selectedLayout = prefs.lastLayout || "turtle";
+  let selectedDifficulty = prefs.difficulty || "medium";
   let gameStarted = false;
   let pendingWin = null;
 
@@ -1844,8 +1882,9 @@ window.MJ = window.MJ || {};
   let hudInterval = null;
   function updateHud() {
     el.statPairs.textContent = game.pairsLeft();
-    el.btnUndo.style.opacity = game.history.length ? 1 : 0.4;
+    el.btnUndo.style.opacity = (game.history.length && game.undosUsed < game.maxUndos) ? 1 : 0.4;
     el.btnHint.style.opacity = game.hintsUsed < game.maxHints ? 1 : 0.4;
+    el.btnShuffle.style.opacity = game.reshufflesUsed < game.maxReshuffles ? 1 : 0.4;
   }
   function tickTimer() {
     if (!game.paused && gameStarted) el.statTime.textContent = fmtTime(game.elapsedMs());
@@ -1877,6 +1916,19 @@ window.MJ = window.MJ || {};
   }
   buildLayoutGrid();
 
+  function buildDifficultySegmented() {
+    Array.from(el.difficultySegmented.querySelectorAll(".segBtn")).forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.difficulty === selectedDifficulty);
+      btn.onclick = () => {
+        selectedDifficulty = btn.dataset.difficulty;
+        prefs.difficulty = selectedDifficulty; savePrefs();
+        buildDifficultySegmented();
+      };
+    });
+    el.difficultyHint.textContent = DIFFICULTY_HINTS[selectedDifficulty] || "";
+  }
+  buildDifficultySegmented();
+
   function openMenu() {
     game.pause();
     showHud(false);
@@ -1889,7 +1941,7 @@ window.MJ = window.MJ || {};
     showHud(true);
     hideAllScreens();
     fitCanvas(); // measure HUD/zoom-control insets now that they're visible
-    game.newGame(selectedLayout);
+    game.newGame(selectedLayout, undefined, selectedDifficulty);
     gameStarted = true;
     updateHud();
     el.statTime.textContent = "00:00";
@@ -1897,7 +1949,7 @@ window.MJ = window.MJ || {};
 
   el.btnPlay.addEventListener("click", () => {
     Audio.unlock();
-    if (gameStarted && game.paused && game.layoutKey === selectedLayout && !game.finished) {
+    if (gameStarted && game.paused && game.layoutKey === selectedLayout && game.difficulty === selectedDifficulty && !game.finished) {
       showHud(true);
       hideAllScreens();
       fitCanvas();
