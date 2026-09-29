@@ -48,6 +48,8 @@
     stuckBanner: $("#stuckBanner"),
     btnStuckShuffle: $("#btnStuckShuffle"),
     btnStuckUndo: $("#btnStuckUndo"),
+    updateBanner: $("#updateBanner"),
+    btnUpdateReload: $("#btnUpdateReload"),
   };
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
@@ -312,10 +314,51 @@
   showHud(false);
   showScreen(el.screenMenu);
 
-  // ---------- PWA service worker ----------
+  // ---------- PWA service worker + update notification ----------
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").catch(() => {});
+      navigator.serviceWorker.register("sw.js").then((reg) => {
+        const showUpdateBannerFor = (worker) => {
+          el.updateBanner.hidden = false;
+          el.btnUpdateReload.onclick = () => {
+            el.btnUpdateReload.disabled = true;
+            worker.postMessage("SKIP_WAITING");
+          };
+        };
+
+        // A worker already sitting in "waiting" (e.g. install finished
+        // while this tab was in the background) means an update is ready
+        // right now.
+        if (reg.waiting) showUpdateBannerFor(reg.waiting);
+
+        // A worker installing during this session, once it finishes and
+        // there's already an active controller, is also an update (a
+        // first-ever install has no controller yet, so that case is
+        // correctly skipped here).
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdateBannerFor(newWorker);
+            }
+          });
+        });
+
+        // Check for a fresher sw.js whenever the app is reopened/foregrounded
+        // — the browser doesn't otherwise recheck for a long-lived tab.
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) reg.update().catch(() => {});
+        });
+      }).catch(() => {});
+
+      // Once the new worker takes control, reload once to run the fresh code.
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      });
     });
   }
 })();

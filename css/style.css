@@ -234,6 +234,19 @@ html, body {
   padding: 7px 12px; border-radius: 10px; font-size: 12px; cursor: pointer;
 }
 
+.updateBanner {
+  position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 14px);
+  transform: translateX(-50%);
+  background: rgba(20,60,45,0.96);
+  border: 1px solid rgba(255,210,63,0.4);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+  z-index: 40; /* above .screen (30) so it's reachable from menus too */
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
 @media (max-width: 360px) {
   .panel { padding: 18px 16px; }
   .title { font-size: 24px; }
