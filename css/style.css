@@ -116,6 +116,7 @@ html, body {
 }
 
 .title { font-size: 28px; margin: 4px 0 0; }
+.winMessage { font-size: 18px; font-weight: 700; color: var(--accent); margin: 4px 0 2px; }
 .subtitle { color: var(--ink-dim); margin: 4px 0 18px; }
 
 .layoutGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }

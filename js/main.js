@@ -38,6 +38,7 @@
     lbLayoutTabs: $("#lbLayoutTabs"),
     lbList: $("#lbList"),
     btnCloseLeaderboard: $("#btnCloseLeaderboard"),
+    winMessage: $("#winMessage"),
     winSummary: $("#winSummary"),
     winScoreForm: $("#winScoreForm"),
     winName: $("#winName"),
@@ -49,7 +50,7 @@
     btnStuckUndo: $("#btnStuckUndo"),
   };
 
-  const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰" };
+  const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
   const DIFFICULTY_HINTS = {
     easy: "10 hints · unlimited undo · unlimited reshuffles · blocked tiles dimmed",
     medium: "5 hints · unlimited undo · unlimited reshuffles · blocked tiles dimmed",
@@ -259,11 +260,33 @@
   el.btnCloseLeaderboard.addEventListener("click", () => showScreen(el.screenMenu));
 
   // ---------- win flow ----------
+  const WIN_MESSAGES = {
+    record: ["New record! 🏆 Absolutely crushing it.", "🏆 Top of the leaderboard — incredible run!"],
+    lightning: ["Lightning fast! ⚡", "Wow, you're fast! 🔥", "Blazing speed — did you even look at the tiles?"],
+    great: ["Great clear! Really smooth run.", "Nice pace — well played! 👏"],
+    good: ["Board cleared! Solid work.", "Nicely done! 🍵"],
+    steady: ["You cleared it — steady and sure.", "Got there in the end, nice work!"],
+    chill: ["Board cleared! Every tile down eventually counts.", "Slow and steady — you did it! 🌿"],
+  };
+  function pickWinMessage(result, isRecord) {
+    let tier = "chill";
+    if (isRecord) tier = "record";
+    else if (result.timeMs < 120000) tier = "lightning";
+    else if (result.timeMs < 240000) tier = "great";
+    else if (result.timeMs < 420000) tier = "good";
+    else if (result.timeMs < 720000) tier = "steady";
+    const options = WIN_MESSAGES[tier];
+    let msg = options[Math.floor(Math.random() * options.length)];
+    if (result.hints === 0 && tier !== "record") msg += " Zero hints used, too.";
+    return msg;
+  }
+
   function handleWin(result) {
     showHud(false);
     hideStuckBanner();
-    const mins = Math.floor(result.timeMs / 60000);
-    const secs = Math.floor((result.timeMs % 60000) / 1000);
+    const priorEntries = Leaderboard.getEntries(result.layoutKey);
+    const isRecord = priorEntries.length === 0 || result.timeMs < priorEntries[0].timeMs;
+    el.winMessage.textContent = pickWinMessage(result, isRecord);
     el.winSummary.textContent = `${Layouts[result.layoutKey].name} · ${fmtTime(result.timeMs)} · ${result.moves} moves · ${result.hints} hints used`;
     const qualifies = Leaderboard.qualifies(result.layoutKey, result.timeMs);
     el.winScoreForm.hidden = !qualifies;
