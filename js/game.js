@@ -31,7 +31,10 @@ window.MJ = window.MJ || {};
 
     newGame(layoutKey, seed) {
       this.layoutKey = layoutKey;
-      const positions = Layouts[layoutKey].positions;
+      const cssW = this.canvas.clientWidth || window.innerWidth;
+      const cssH = this.canvas.clientHeight || window.innerHeight;
+      const isPhonePortrait = cssW < 700 && cssH > cssW;
+      const positions = isPhonePortrait ? Layouts[layoutKey].positionsTall : Layouts[layoutKey].positions;
       const dealt = Dealer.dealSolvable(positions, seed ?? (Math.random() * 1e9 | 0));
       this.tiles = positions.map((p, i) => Object.assign({ id: i, col: p.col, row: p.row, level: p.level, removed: false }, dealt[i]));
       this.selected = null;

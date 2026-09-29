@@ -1,6 +1,6 @@
 // UI wiring: menus, settings, leaderboard, win flow. Boots the Game.
 (function () {
-  const { Layouts, Leaderboard, Audio } = window.MJ;
+  const { Layouts, Leaderboard, Audio, Music } = window.MJ;
 
   const $ = (sel) => document.querySelector(sel);
   const el = {
@@ -30,6 +30,7 @@
     btnBackToMenu: $("#btnBackToMenu"),
     styleSegmented: $("#styleSegmented"),
     soundToggle: $("#soundToggle"),
+    musicToggle: $("#musicToggle"),
     btnClearBoard: $("#btnClearBoard"),
     btnCloseSettings: $("#btnCloseSettings"),
     lbLayoutTabs: $("#lbLayoutTabs"),
@@ -70,9 +71,14 @@
 
   game.renderer.style = prefs.style || "flat";
   Audio.setEnabled(prefs.sound !== false);
+  Music.setEnabled(prefs.music !== false);
 
   function fitCanvas() {
     const rect = el.board.parentElement.getBoundingClientRect();
+    const hudRect = el.hud.getBoundingClientRect();
+    const zoomRect = $("#zoomControls").getBoundingClientRect();
+    game.renderer.topInset = hudRect.bottom + 28;
+    game.renderer.bottomInset = rect.height - zoomRect.top + 28;
     game.resizeToContainer(rect.width, rect.height);
   }
   window.addEventListener("resize", fitCanvas);
@@ -131,10 +137,11 @@
 
   function startNewGame() {
     hideStuckBanner();
-    game.newGame(selectedLayout);
-    gameStarted = true;
     showHud(true);
     hideAllScreens();
+    fitCanvas(); // measure HUD/zoom-control insets now that they're visible
+    game.newGame(selectedLayout);
+    gameStarted = true;
     updateHud();
     el.statTime.textContent = "00:00";
   }
@@ -144,6 +151,7 @@
     if (gameStarted && game.paused && game.layoutKey === selectedLayout && !game.finished) {
       showHud(true);
       hideAllScreens();
+      fitCanvas();
       game.resume();
     } else {
       startNewGame();
@@ -172,6 +180,12 @@
   el.soundToggle.addEventListener("change", () => {
     prefs.sound = el.soundToggle.checked;
     Audio.setEnabled(prefs.sound);
+    savePrefs();
+  });
+  el.musicToggle.checked = prefs.music !== false;
+  el.musicToggle.addEventListener("change", () => {
+    prefs.music = el.musicToggle.checked;
+    Music.setEnabled(prefs.music);
     savePrefs();
   });
   Array.from(el.styleSegmented.querySelectorAll(".segBtn")).forEach((btn) => {

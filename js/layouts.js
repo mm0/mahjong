@@ -95,12 +95,22 @@ window.MJ = window.MJ || {};
     fortress: { name: "Fortress", build: fortress },
   };
 
+  // Every layout above is designed wide (landscape) — a good fit for
+  // desktop windows. transposed() swaps col/row so the same board runs
+  // tall instead, for phones held in portrait; harmless to do, since the
+  // game logic (matching, free-tile checks, the solvable dealer) is
+  // entirely axis-agnostic.
+  function transposed(positions) {
+    return positions.map((p) => ({ col: p.row, row: p.col, level: p.level }));
+  }
+
   Object.keys(LAYOUTS).forEach((key) => {
     const positions = LAYOUTS[key].build();
     if (positions.length !== 144) {
       console.error(`Layout "${key}" has ${positions.length} tiles, expected 144`);
     }
     LAYOUTS[key].positions = positions;
+    LAYOUTS[key].positionsTall = transposed(positions);
   });
 
   window.MJ.Layouts = LAYOUTS;

@@ -90,12 +90,33 @@ window.MJ = window.MJ || {};
       const b = this.boardBounds(tiles);
       const zx = (this.cssW - padding * 2) / b.w;
       const zy = (this.cssH - padding * 2) / b.h;
-      const z = Math.max(0.28, Math.min(zx, zy));
-      this.minZoom = z * 0.85;
+      const fitAllZoom = Math.max(0.28, Math.min(zx, zy));
+
+      // On phone-sized screens, cramming the whole 144-tile board into view
+      // makes tiles illegibly tiny. Prefer a legible minimum tile size and
+      // let the player pan/pinch to see the rest, like real mobile Mahjong
+      // Solitaire apps do — only fall back to "fit everything" on wider
+      // screens (tablet/desktop) where that size is already comfortable.
+      const isPhone = this.cssW < 700;
+      const COMFORTABLE_TILE_W = 50; // CSS px
+      const comfortableZoom = COMFORTABLE_TILE_W / TILE_W;
+      const z = isPhone ? Math.max(fitAllZoom, comfortableZoom) : fitAllZoom;
+
+      this.minZoom = Math.min(fitAllZoom, z) * 0.85;
       this.maxZoom = Math.max(2.6, z * 3.2);
       this.zoom = z;
+
+      // Fit within the area actually visible between the HUD bar and the
+      // zoom controls, not the full canvas — otherwise on phones the board
+      // centers under the header and its top rows are permanently hidden.
+      const topInset = isPhone ? this.topInset || 100 : 0;
+      const bottomInset = isPhone ? this.bottomInset || 110 : 0;
+      const visibleH = Math.max(100, this.cssH - topInset - bottomInset);
+      const boardHZoomed = b.h * z;
       this.panX = (this.cssW - b.w * z) / 2 - b.minX * z;
-      this.panY = (this.cssH - b.h * z) / 2 - b.minY * z;
+      this.panY = boardHZoomed > visibleH
+        ? topInset - b.minY * z // top-align: whole board still reachable by panning down
+        : topInset + (visibleH - boardHZoomed) / 2 - b.minY * z;
     }
 
     clampPan(tiles) {
