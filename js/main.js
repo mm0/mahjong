@@ -1,0 +1,262 @@
+// UI wiring: menus, settings, leaderboard, win flow. Boots the Game.
+(function () {
+  const { Layouts, Leaderboard, Audio } = window.MJ;
+
+  const $ = (sel) => document.querySelector(sel);
+  const el = {
+    board: $("#board"),
+    hud: $("#hud"),
+    statTime: $("#statTime"),
+    statPairs: $("#statPairs"),
+    btnMenu: $("#btnMenu"),
+    btnUndo: $("#btnUndo"),
+    btnHint: $("#btnHint"),
+    btnShuffle: $("#btnShuffle"),
+    btnZoomIn: $("#btnZoomIn"),
+    btnZoomOut: $("#btnZoomOut"),
+    btnFit: $("#btnFit"),
+    screenMenu: $("#screenMenu"),
+    screenPause: $("#screenPause"),
+    screenSettings: $("#screenSettings"),
+    screenLeaderboard: $("#screenLeaderboard"),
+    screenWin: $("#screenWin"),
+    layoutGrid: $("#layoutGrid"),
+    btnPlay: $("#btnPlay"),
+    btnLeaderboard: $("#btnLeaderboard"),
+    btnSettings: $("#btnSettings"),
+    continueHint: $("#continueHint"),
+    btnResume: $("#btnResume"),
+    btnRestartLayout: $("#btnRestartLayout"),
+    btnBackToMenu: $("#btnBackToMenu"),
+    styleSegmented: $("#styleSegmented"),
+    soundToggle: $("#soundToggle"),
+    btnClearBoard: $("#btnClearBoard"),
+    btnCloseSettings: $("#btnCloseSettings"),
+    lbLayoutTabs: $("#lbLayoutTabs"),
+    lbList: $("#lbList"),
+    btnCloseLeaderboard: $("#btnCloseLeaderboard"),
+    winSummary: $("#winSummary"),
+    winScoreForm: $("#winScoreForm"),
+    winName: $("#winName"),
+    btnSaveScore: $("#btnSaveScore"),
+    btnWinPlayAgain: $("#btnWinPlayAgain"),
+    btnWinMenu: $("#btnWinMenu"),
+    stuckBanner: $("#stuckBanner"),
+    btnStuckShuffle: $("#btnStuckShuffle"),
+    btnStuckUndo: $("#btnStuckUndo"),
+  };
+
+  const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰" };
+
+  const prefs = loadPrefs();
+  let selectedLayout = prefs.lastLayout || "turtle";
+  let gameStarted = false;
+  let pendingWin = null;
+
+  function loadPrefs() {
+    try { return JSON.parse(localStorage.getItem("mj_prefs_v1")) || {}; } catch (e) { return {}; }
+  }
+  function savePrefs() {
+    try { localStorage.setItem("mj_prefs_v1", JSON.stringify(prefs)); } catch (e) {}
+  }
+
+  // ---------- game setup ----------
+  const game = new window.MJ.Game(el.board, {
+    onChange: updateHud,
+    onStuck: showStuckBanner,
+    onWin: handleWin,
+  });
+  window.__MJ_GAME__ = game; // debug/test hook
+
+  game.renderer.style = prefs.style || "flat";
+  Audio.setEnabled(prefs.sound !== false);
+
+  function fitCanvas() {
+    const rect = el.board.parentElement.getBoundingClientRect();
+    game.resizeToContainer(rect.width, rect.height);
+  }
+  window.addEventListener("resize", fitCanvas);
+  window.addEventListener("orientationchange", () => setTimeout(fitCanvas, 200));
+  fitCanvas();
+
+  function fmtTime(ms) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+
+  let hudInterval = null;
+  function updateHud() {
+    el.statPairs.textContent = game.pairsLeft();
+    el.btnUndo.style.opacity = game.history.length ? 1 : 0.4;
+    el.btnHint.style.opacity = game.hintsUsed < game.maxHints ? 1 : 0.4;
+  }
+  function tickTimer() {
+    if (!game.paused && gameStarted) el.statTime.textContent = fmtTime(game.elapsedMs());
+  }
+
+  function showStuckBanner() { el.stuckBanner.hidden = false; }
+  function hideStuckBanner() { el.stuckBanner.hidden = true; }
+
+  // ---------- screens ----------
+  function hideAllScreens() {
+    [el.screenMenu, el.screenPause, el.screenSettings, el.screenLeaderboard, el.screenWin].forEach((s) => (s.hidden = true));
+  }
+  function showScreen(s) { hideAllScreens(); s.hidden = false; }
+  function showHud(visible) { el.hud.style.display = visible ? "flex" : "none"; document.getElementById("zoomControls").style.display = visible ? "flex" : "none"; }
+
+  function buildLayoutGrid() {
+    el.layoutGrid.innerHTML = "";
+    Object.keys(Layouts).forEach((key) => {
+      const card = document.createElement("button");
+      card.className = "layoutCard" + (key === selectedLayout ? " active" : "");
+      card.innerHTML = `<span class="glyph">${LAYOUT_GLYPH[key] || "🀄"}</span>${Layouts[key].name}`;
+      card.addEventListener("click", () => {
+        selectedLayout = key;
+        prefs.lastLayout = key; savePrefs();
+        buildLayoutGrid();
+      });
+      el.layoutGrid.appendChild(card);
+    });
+  }
+  buildLayoutGrid();
+
+  function openMenu() {
+    game.pause();
+    showHud(false);
+    el.continueHint.hidden = !gameStarted;
+    showScreen(el.screenMenu);
+  }
+
+  function startNewGame() {
+    hideStuckBanner();
+    game.newGame(selectedLayout);
+    gameStarted = true;
+    showHud(true);
+    hideAllScreens();
+    updateHud();
+    el.statTime.textContent = "00:00";
+  }
+
+  el.btnPlay.addEventListener("click", () => {
+    Audio.unlock();
+    if (gameStarted && game.paused && game.layoutKey === selectedLayout && !game.finished) {
+      showHud(true);
+      hideAllScreens();
+      game.resume();
+    } else {
+      startNewGame();
+    }
+  });
+
+  el.btnMenu.addEventListener("click", openMenu);
+  el.btnResume.addEventListener("click", () => { showHud(true); hideAllScreens(); game.resume(); });
+  el.btnRestartLayout.addEventListener("click", () => startNewGame());
+  el.btnBackToMenu.addEventListener("click", () => { gameStarted = false; openMenu(); });
+
+  el.btnUndo.addEventListener("click", () => game.undo());
+  el.btnHint.addEventListener("click", () => game.hint());
+  el.btnShuffle.addEventListener("click", () => { game.shuffle(); hideStuckBanner(); });
+  el.btnStuckShuffle.addEventListener("click", () => { game.shuffle(); hideStuckBanner(); });
+  el.btnStuckUndo.addEventListener("click", () => { game.undo(); hideStuckBanner(); });
+
+  el.btnZoomIn.addEventListener("click", () => game.zoomBy(1.2));
+  el.btnZoomOut.addEventListener("click", () => game.zoomBy(0.83));
+  el.btnFit.addEventListener("click", () => game.resetView());
+
+  // ---------- settings ----------
+  el.btnSettings.addEventListener("click", () => showScreen(el.screenSettings));
+  el.btnCloseSettings.addEventListener("click", () => showScreen(el.screenMenu));
+  el.soundToggle.checked = prefs.sound !== false;
+  el.soundToggle.addEventListener("change", () => {
+    prefs.sound = el.soundToggle.checked;
+    Audio.setEnabled(prefs.sound);
+    savePrefs();
+  });
+  Array.from(el.styleSegmented.querySelectorAll(".segBtn")).forEach((btn) => {
+    if (btn.dataset.style === (prefs.style || "flat")) btn.classList.add("active"); else btn.classList.remove("active");
+    btn.addEventListener("click", () => {
+      Array.from(el.styleSegmented.querySelectorAll(".segBtn")).forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      game.renderer.style = btn.dataset.style;
+      prefs.style = btn.dataset.style;
+      savePrefs();
+      game._draw();
+    });
+  });
+  el.btnClearBoard.addEventListener("click", () => {
+    if (confirm("Clear all local leaderboard scores? This cannot be undone.")) {
+      Leaderboard.clearAll();
+      renderLeaderboard();
+    }
+  });
+
+  // ---------- leaderboard ----------
+  let lbActiveLayout = "turtle";
+  function buildLbTabs() {
+    el.lbLayoutTabs.innerHTML = "";
+    Object.keys(Layouts).forEach((key) => {
+      const btn = document.createElement("button");
+      btn.className = "segBtn" + (key === lbActiveLayout ? " active" : "");
+      btn.textContent = Layouts[key].name;
+      btn.addEventListener("click", () => { lbActiveLayout = key; buildLbTabs(); renderLeaderboard(); });
+      el.lbLayoutTabs.appendChild(btn);
+    });
+  }
+  function renderLeaderboard() {
+    const entries = Leaderboard.getEntries(lbActiveLayout);
+    el.lbList.innerHTML = "";
+    if (!entries.length) {
+      el.lbList.innerHTML = `<li class="lbEmpty">No scores yet — be the first!</li>`;
+      return;
+    }
+    entries.forEach((e, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="lbRank">${i + 1}</span><span class="lbName">${escapeHtml(e.name)}</span><span class="lbTime">${fmtTime(e.timeMs)}</span>`;
+      el.lbList.appendChild(li);
+    });
+  }
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+  el.btnLeaderboard.addEventListener("click", () => { buildLbTabs(); renderLeaderboard(); showScreen(el.screenLeaderboard); });
+  el.btnCloseLeaderboard.addEventListener("click", () => showScreen(el.screenMenu));
+
+  // ---------- win flow ----------
+  function handleWin(result) {
+    showHud(false);
+    hideStuckBanner();
+    const mins = Math.floor(result.timeMs / 60000);
+    const secs = Math.floor((result.timeMs % 60000) / 1000);
+    el.winSummary.textContent = `${Layouts[result.layoutKey].name} · ${fmtTime(result.timeMs)} · ${result.moves} moves · ${result.hints} hints used`;
+    const qualifies = Leaderboard.qualifies(result.layoutKey, result.timeMs);
+    el.winScoreForm.hidden = !qualifies;
+    pendingWin = result;
+    if (qualifies) el.winName.value = prefs.lastName || "";
+    showScreen(el.screenWin);
+  }
+  el.btnSaveScore.addEventListener("click", () => {
+    const name = (el.winName.value || "Player").trim().slice(0, 16) || "Player";
+    prefs.lastName = name; savePrefs();
+    Leaderboard.addEntry(pendingWin.layoutKey, { name, timeMs: pendingWin.timeMs, moves: pendingWin.moves, date: Date.now() });
+    el.winScoreForm.hidden = true;
+  });
+  el.btnWinPlayAgain.addEventListener("click", () => startNewGame());
+  el.btnWinMenu.addEventListener("click", () => { gameStarted = false; openMenu(); });
+
+  // ---------- lifecycle ----------
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) game.pause();
+  });
+
+  hudInterval = setInterval(tickTimer, 250);
+  showHud(false);
+  showScreen(el.screenMenu);
+
+  // ---------- PWA service worker ----------
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+})();

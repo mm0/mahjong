@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>Jade Mahjong Solitaire</title>
+  <meta name="description" content="A polished Mahjong Solitaire game, installable on iOS, with local leaderboards." />
+  <meta name="theme-color" content="#0a3327" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Jade Mahjong" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="board" aria-label="Mahjong board"></canvas>
+
+    <header id="hud" class="hud">
+      <button id="btnMenu" class="iconBtn" aria-label="Menu">☰</button>
+      <div class="hudStats">
+        <div class="stat"><span class="statLabel">Time</span><span id="statTime">00:00</span></div>
+        <div class="stat"><span class="statLabel">Pairs</span><span id="statPairs">72</span></div>
+      </div>
+      <div class="hudActions">
+        <button id="btnUndo" class="iconBtn" aria-label="Undo">↺</button>
+        <button id="btnHint" class="iconBtn" aria-label="Hint">💡</button>
+        <button id="btnShuffle" class="iconBtn" aria-label="Shuffle">🔀</button>
+      </div>
+    </header>
+
+    <div id="zoomControls" class="zoomControls">
+      <button id="btnZoomIn" class="iconBtn small" aria-label="Zoom in">＋</button>
+      <button id="btnZoomOut" class="iconBtn small" aria-label="Zoom out">－</button>
+      <button id="btnFit" class="iconBtn small" aria-label="Fit board">⤢</button>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="screenMenu" class="screen">
+      <div class="panel menuPanel">
+        <h1 class="title">🀄 Jade Mahjong</h1>
+        <p class="subtitle">Solitaire</p>
+
+        <div class="layoutGrid" id="layoutGrid"></div>
+
+        <button id="btnPlay" class="bigBtn">Play</button>
+        <div class="menuRow">
+          <button id="btnLeaderboard" class="ghostBtn">Leaderboard</button>
+          <button id="btnSettings" class="ghostBtn">Settings</button>
+        </div>
+        <p class="hint" id="continueHint" hidden>A game is in progress — Play will resume it.</p>
+      </div>
+    </div>
+
+    <!-- Pause / in-game menu -->
+    <div id="screenPause" class="screen" hidden>
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="btnResume" class="bigBtn">Resume</button>
+        <button id="btnRestartLayout" class="ghostBtn">New Deal (same layout)</button>
+        <button id="btnBackToMenu" class="ghostBtn">Main Menu</button>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div id="screenSettings" class="screen" hidden>
+      <div class="panel">
+        <h2>Settings</h2>
+        <div class="settingRow">
+          <span>Tile style</span>
+          <div class="segmented" id="styleSegmented">
+            <button data-style="flat" class="segBtn active">Modern</button>
+            <button data-style="classic" class="segBtn">Classic</button>
+          </div>
+        </div>
+        <div class="settingRow">
+          <span>Sound</span>
+          <label class="toggle"><input type="checkbox" id="soundToggle" checked /><span class="toggleTrack"></span></label>
+        </div>
+        <button id="btnClearBoard" class="ghostBtn danger">Clear Leaderboard</button>
+        <button id="btnCloseSettings" class="bigBtn">Done</button>
+      </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div id="screenLeaderboard" class="screen" hidden>
+      <div class="panel">
+        <h2>Leaderboard</h2>
+        <div class="segmented" id="lbLayoutTabs"></div>
+        <ol id="lbList" class="lbList"></ol>
+        <button id="btnCloseLeaderboard" class="bigBtn">Close</button>
+      </div>
+    </div>
+
+    <!-- Win -->
+    <div id="screenWin" class="screen" hidden>
+      <div class="panel">
+        <h2>🎉 Board Cleared!</h2>
+        <p id="winSummary" class="subtitle"></p>
+        <div id="winScoreForm" class="winForm" hidden>
+          <p>New leaderboard entry! Enter your name:</p>
+          <input id="winName" maxlength="16" placeholder="Your name" autocomplete="off" autocapitalize="words" />
+          <button id="btnSaveScore" class="bigBtn">Save Score</button>
+        </div>
+        <button id="btnWinPlayAgain" class="bigBtn">Play Again</button>
+        <button id="btnWinMenu" class="ghostBtn">Main Menu</button>
+      </div>
+    </div>
+
+    <!-- Stuck banner -->
+    <div id="stuckBanner" class="stuckBanner" hidden>
+      <span>No moves left.</span>
+      <button id="btnStuckShuffle" class="smallBtn">Shuffle</button>
+      <button id="btnStuckUndo" class="smallBtn">Undo</button>
+    </div>
+  </div>
+
+  <script src="js/tiles-data.js"></script>
+  <script src="js/layouts.js"></script>
+  <script src="js/dealer.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/leaderboard.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
