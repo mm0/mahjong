@@ -270,7 +270,7 @@ html, body {
   font-size: 11px;
   letter-spacing: 0.02em;
   pointer-events: none;
-  z-index: 5;
+  z-index: 35;
 }
 
 @media (max-width: 360px) {
