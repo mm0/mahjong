@@ -263,6 +263,16 @@ html, body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
 
+.versionTag {
+  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.35);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 5;
+}
+
 @media (max-width: 360px) {
   .panel { padding: 18px 16px; }
   .title { font-size: 24px; }

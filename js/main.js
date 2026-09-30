@@ -51,7 +51,11 @@
     btnStuckUndo: $("#btnStuckUndo"),
     updateBanner: $("#updateBanner"),
     btnUpdateReload: $("#btnUpdateReload"),
+    versionTag: $("#versionTag"),
   };
+
+  const APP_VERSION = "6"; // keep in sync with VERSION in sw.js
+  el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
   const DIFFICULTY_HINTS = {
