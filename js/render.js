@@ -46,7 +46,8 @@ window.MJ = window.MJ || {};
     constructor(canvas) {
       this.canvas = canvas;
       this.ctx = canvas.getContext("2d");
-      this.style = "flat"; // 'flat' | 'classic'
+      this.style = "flat"; // 'flat' | 'classic' | '3d'
+      this.sizeScale = 1; // user "tile size" preference, applied on top of auto-fit
       this.zoom = 1;
       this.minZoom = 0.4;
       this.maxZoom = 2.6;
@@ -100,7 +101,7 @@ window.MJ = window.MJ || {};
       const isPhone = this.cssW < 700;
       const COMFORTABLE_TILE_W = 50; // CSS px
       const comfortableZoom = COMFORTABLE_TILE_W / TILE_W;
-      const z = isPhone ? Math.max(fitAllZoom, comfortableZoom) : fitAllZoom;
+      const z = (isPhone ? Math.max(fitAllZoom, comfortableZoom) : fitAllZoom) * this.sizeScale;
 
       this.minZoom = Math.min(fitAllZoom, z) * 0.85;
       this.maxZoom = Math.max(2.6, z * 3.2);
@@ -191,7 +192,83 @@ window.MJ = window.MJ || {};
 
     drawTile(tile, r, state) {
       if (this.style === "classic") this.drawTileClassic(tile, r, state);
+      else if (this.style === "3d") this.drawTile3D(tile, r, state);
       else this.drawTileFlat(tile, r, state);
+    }
+
+    // A raised, blocky look: a darker right face and bottom face give the
+    // top face visible thickness, like a real mahjong tile standing on the
+    // table rather than a flat sticker.
+    drawTile3D(tile, r, state) {
+      const ctx = this.ctx;
+      const { x, y, w, h } = r;
+      const rad = w * 0.1;
+      const depth = Math.max(3, h * 0.16);
+
+      ctx.save();
+      // drop shadow, cast further than the flatter styles since the block
+      // itself now has real height
+      ctx.globalAlpha = state.free ? 0.32 : 0.2;
+      roundRect(ctx, x + w * 0.08, y + h * 0.1 + depth, w, h, rad);
+      ctx.fillStyle = "#00120a";
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      const baseColor = state.free ? "#f2ead6" : "#cfc9ba";
+      const sideColor = state.free ? "#b9ae8f" : "#9a9182";
+      const frontColor = state.free ? "#a89b78" : "#8a8272";
+
+      // right face
+      ctx.beginPath();
+      ctx.moveTo(x + w, y + rad * 0.4);
+      ctx.lineTo(x + w, y + h - rad * 0.4);
+      ctx.lineTo(x + w + depth, y + h - rad * 0.4 + depth * 0.5);
+      ctx.lineTo(x + w + depth, y + rad * 0.4 + depth * 0.5);
+      ctx.closePath();
+      const rightGrad = ctx.createLinearGradient(x + w, y, x + w + depth, y);
+      rightGrad.addColorStop(0, sideColor);
+      rightGrad.addColorStop(1, frontColor);
+      ctx.fillStyle = rightGrad;
+      ctx.fill();
+
+      // bottom/front face
+      ctx.beginPath();
+      ctx.moveTo(x + rad * 0.4, y + h);
+      ctx.lineTo(x + w - rad * 0.4, y + h);
+      ctx.lineTo(x + w - rad * 0.4 + depth, y + h + depth * 0.5);
+      ctx.lineTo(x + rad * 0.4 + depth, y + h + depth * 0.5);
+      ctx.closePath();
+      const frontGrad = ctx.createLinearGradient(x, y + h, x, y + h + depth * 0.5);
+      frontGrad.addColorStop(0, sideColor);
+      frontGrad.addColorStop(1, frontColor);
+      ctx.fillStyle = frontGrad;
+      ctx.fill();
+
+      // top face
+      ctx.save();
+      roundRect(ctx, x, y, w, h, rad);
+      const grad = ctx.createLinearGradient(x, y, x, y + h);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(1, baseColor);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.lineWidth = Math.max(1, w * 0.03);
+      ctx.strokeStyle = state.selected ? "#ffd23f" : (state.hinted ? "#5fd0ff" : "rgba(40,30,10,0.3)");
+      if (state.selected || state.hinted) ctx.lineWidth = Math.max(2.5, w * 0.07);
+      ctx.stroke();
+
+      if (!state.free) {
+        ctx.save();
+        roundRect(ctx, x, y, w, h, rad);
+        ctx.fillStyle = "rgba(20,20,20,0.22)";
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+
+      this.drawGlyph(tile, x, y, w, h, "3d");
+      ctx.restore();
     }
 
     drawTileFlat(tile, r, state) {

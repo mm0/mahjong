@@ -254,6 +254,23 @@ window.MJ = window.MJ || {};
       let lastDist = null;
       let downInfo = null;
 
+      // Exposed so the page can clear any in-progress touch/pinch bookkeeping
+      // when the tab is backgrounded — iOS Safari doesn't reliably fire
+      // pointerup/pointercancel for a touch that was active when the app was
+      // switched away from, which can otherwise leave a stale pointer (and
+      // pointer capture) behind.
+      this.resetInput = () => {
+        pointers.forEach((_, id) => {
+          try { el.releasePointerCapture(id); } catch (e) {}
+        });
+        pointers.clear();
+        dragging = false;
+        dragMoved = false;
+        lastMid = null;
+        lastDist = null;
+        downInfo = null;
+      };
+
       const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
       const mid = (p1, p2) => ({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
 

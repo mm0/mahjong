@@ -200,6 +200,22 @@ html, body {
 .toggle input:checked + .toggleTrack::before { transform: translateX(18px); }
 
 /* ---------- leaderboard ---------- */
+/* 6 layout names (some as long as "Dragon Gate") don't fit in one
+   .segmented flex row without squeezing/overflowing — lay them out as a
+   3x2 grid instead, same pattern as .layoutGrid on the main menu. */
+#lbLayoutTabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: none;
+  padding: 0;
+}
+#lbLayoutTabs .segBtn {
+  flex: none;
+  padding: 8px 4px;
+  font-size: 12px;
+  line-height: 1.2;
+}
 .lbList { list-style: none; padding: 0; margin: 12px 0; text-align: left; max-height: 45vh; overflow-y: auto; }
 .lbList li {
   display: flex; align-items: center; gap: 10px;

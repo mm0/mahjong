@@ -31,6 +31,7 @@
     btnRestartLayout: $("#btnRestartLayout"),
     btnBackToMenu: $("#btnBackToMenu"),
     styleSegmented: $("#styleSegmented"),
+    sizeSegmented: $("#sizeSegmented"),
     soundToggle: $("#soundToggle"),
     musicToggle: $("#musicToggle"),
     btnClearBoard: $("#btnClearBoard"),
@@ -80,7 +81,9 @@
   });
   window.__MJ_GAME__ = game; // debug/test hook
 
-  game.renderer.style = prefs.style || "flat";
+  const TILE_SIZE_SCALES = { small: 0.82, medium: 1, large: 1.18, xl: 1.38 };
+  game.renderer.style = prefs.style || "3d";
+  game.renderer.sizeScale = TILE_SIZE_SCALES[prefs.tileSize] || TILE_SIZE_SCALES.large;
   Audio.setEnabled(prefs.sound !== false);
   Music.setEnabled(prefs.music !== false);
 
@@ -214,7 +217,7 @@
     savePrefs();
   });
   Array.from(el.styleSegmented.querySelectorAll(".segBtn")).forEach((btn) => {
-    if (btn.dataset.style === (prefs.style || "flat")) btn.classList.add("active"); else btn.classList.remove("active");
+    if (btn.dataset.style === (prefs.style || "3d")) btn.classList.add("active"); else btn.classList.remove("active");
     btn.addEventListener("click", () => {
       Array.from(el.styleSegmented.querySelectorAll(".segBtn")).forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
@@ -222,6 +225,19 @@
       prefs.style = btn.dataset.style;
       savePrefs();
       game._draw();
+    });
+  });
+  Array.from(el.sizeSegmented.querySelectorAll(".segBtn")).forEach((btn) => {
+    if (btn.dataset.size === (prefs.tileSize || "large")) btn.classList.add("active"); else btn.classList.remove("active");
+    btn.addEventListener("click", () => {
+      Array.from(el.sizeSegmented.querySelectorAll(".segBtn")).forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      game.renderer.sizeScale = TILE_SIZE_SCALES[btn.dataset.size] || 1;
+      prefs.tileSize = btn.dataset.size;
+      savePrefs();
+      // Re-fit so the new size takes effect immediately (a raw redraw
+      // would keep the old zoom/pan), then keep the board on screen.
+      if (game.tiles.length) { game.renderer.fitToScreen(game.tiles); game._draw(); }
     });
   });
   el.btnClearBoard.addEventListener("click", () => {
@@ -258,7 +274,16 @@
   }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-  el.btnLeaderboard.addEventListener("click", () => { buildLbTabs(); renderLeaderboard(); showScreen(el.screenLeaderboard); });
+  el.btnLeaderboard.addEventListener("click", () => {
+    // Default to whichever layout is currently selected on the menu (which,
+    // right after a win, is still the layout that was just played) instead
+    // of always landing on Turtle — otherwise a score saved for any other
+    // layout looks "missing" until you manually switch tabs.
+    lbActiveLayout = selectedLayout;
+    buildLbTabs();
+    renderLeaderboard();
+    showScreen(el.screenLeaderboard);
+  });
   el.btnCloseLeaderboard.addEventListener("click", () => showScreen(el.screenMenu));
 
   // ---------- win flow ----------
@@ -306,8 +331,24 @@
   el.btnWinMenu.addEventListener("click", () => { gameStarted = false; openMenu(); });
 
   // ---------- lifecycle ----------
+  // Backgrounding the tab pauses the timer, but the board/HUD stay on
+  // screen (no pause overlay) — so if nothing un-pauses the game when the
+  // tab comes back, tiles look tappable but silently do nothing (selectTile
+  // bails out while paused). Track whether *this* handler was the one that
+  // paused it, so returning to the tab auto-resumes exactly that case
+  // without stealing control from an explicit menu-driven pause.
+  let autoPaused = false;
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) game.pause();
+    if (document.hidden) {
+      game.resetInput();
+      if (gameStarted && !game.paused && !game.finished) {
+        autoPaused = true;
+        game.pause();
+      }
+    } else if (autoPaused) {
+      autoPaused = false;
+      game.resume();
+    }
   });
 
   hudInterval = setInterval(tickTimer, 250);
@@ -345,8 +386,15 @@
           });
         });
 
-        // Check for a fresher sw.js whenever the app is reopened/foregrounded
-        // — the browser doesn't otherwise recheck for a long-lived tab.
+        // Check for a fresher sw.js right away too — register() alone is
+        // subject to normal HTTP caching and isn't guaranteed to notice a
+        // change immediately, and otherwise the first check wouldn't happen
+        // until you background/foreground the tab (or the browser's own
+        // periodic ~24h check gets around to it).
+        reg.update().catch(() => {});
+
+        // And again whenever the app is reopened/foregrounded, since a
+        // long-lived tab wouldn't otherwise recheck.
         document.addEventListener("visibilitychange", () => {
           if (!document.hidden) reg.update().catch(() => {});
         });
