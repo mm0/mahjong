@@ -1,6 +1,6 @@
 // UI wiring: menus, settings, leaderboard, win flow. Boots the Game.
 (function () {
-  const { Layouts, Leaderboard, Audio, Music } = window.MJ;
+  const { Layouts, Leaderboard, GlobalLeaderboard, Audio, Music } = window.MJ;
 
   const $ = (sel) => document.querySelector(sel);
   const el = {
@@ -36,6 +36,7 @@
     musicToggle: $("#musicToggle"),
     btnClearBoard: $("#btnClearBoard"),
     btnCloseSettings: $("#btnCloseSettings"),
+    lbSourceToggle: $("#lbSourceToggle"),
     lbLayoutTabs: $("#lbLayoutTabs"),
     lbList: $("#lbList"),
     btnCloseLeaderboard: $("#btnCloseLeaderboard"),
@@ -54,7 +55,7 @@
     versionTag: $("#versionTag"),
   };
 
-  const APP_VERSION = "12"; // keep in sync with VERSION in sw.js
+  const APP_VERSION = "13"; // keep in sync with VERSION in sw.js
   el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
@@ -268,6 +269,8 @@
 
   // ---------- leaderboard ----------
   let lbActiveLayout = "turtle";
+  let lbSource = "local";
+  let lbRequestToken = 0;
   function buildLbTabs() {
     el.lbLayoutTabs.innerHTML = "";
     Object.keys(Layouts).forEach((key) => {
@@ -278,8 +281,17 @@
       el.lbLayoutTabs.appendChild(btn);
     });
   }
-  function renderLeaderboard() {
-    const entries = Leaderboard.getEntries(lbActiveLayout);
+  function buildLbSourceToggle() {
+    Array.from(el.lbSourceToggle.querySelectorAll(".segBtn")).forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.source === lbSource);
+      btn.onclick = () => {
+        lbSource = btn.dataset.source;
+        buildLbSourceToggle();
+        renderLeaderboard();
+      };
+    });
+  }
+  function renderEntries(entries) {
     el.lbList.innerHTML = "";
     if (!entries.length) {
       el.lbList.innerHTML = `<li class="lbEmpty">No scores yet — be the first!</li>`;
@@ -291,6 +303,24 @@
       el.lbList.appendChild(li);
     });
   }
+  function renderLeaderboard() {
+    if (lbSource === "local") {
+      renderEntries(Leaderboard.getEntries(lbActiveLayout));
+      return;
+    }
+    el.lbList.innerHTML = `<li class="lbEmpty">Loading…</li>`;
+    const token = ++lbRequestToken;
+    const layoutAtRequest = lbActiveLayout;
+    GlobalLeaderboard.getTopEntries(layoutAtRequest)
+      .then((entries) => {
+        if (token !== lbRequestToken) return; // a newer tab/layout switch already superseded this
+        renderEntries(entries);
+      })
+      .catch(() => {
+        if (token !== lbRequestToken) return;
+        el.lbList.innerHTML = `<li class="lbEmpty">Couldn't load global scores — check your connection.</li>`;
+      });
+  }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
   el.btnLeaderboard.addEventListener("click", () => {
@@ -300,6 +330,7 @@
     // layout looks "missing" until you manually switch tabs.
     lbActiveLayout = selectedLayout;
     buildLbTabs();
+    buildLbSourceToggle();
     renderLeaderboard();
     showScreen(el.screenLeaderboard);
   });
@@ -343,7 +374,9 @@
   el.btnSaveScore.addEventListener("click", () => {
     const name = (el.winName.value || "Player").trim().slice(0, 16) || "Player";
     prefs.lastName = name; savePrefs();
-    Leaderboard.addEntry(pendingWin.layoutKey, { name, timeMs: pendingWin.timeMs, moves: pendingWin.moves, date: Date.now() });
+    const entry = { name, timeMs: pendingWin.timeMs, moves: pendingWin.moves, date: Date.now() };
+    Leaderboard.addEntry(pendingWin.layoutKey, entry);
+    GlobalLeaderboard.addEntry(pendingWin.layoutKey, entry).catch(() => {});
     el.winScoreForm.hidden = true;
   });
   el.btnWinPlayAgain.addEventListener("click", () => startNewGame());
