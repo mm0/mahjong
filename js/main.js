@@ -54,7 +54,7 @@
     versionTag: $("#versionTag"),
   };
 
-  const APP_VERSION = "8"; // keep in sync with VERSION in sw.js
+  const APP_VERSION = "9"; // keep in sync with VERSION in sw.js
   el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
@@ -103,8 +103,8 @@
     const rect = el.board.parentElement.getBoundingClientRect();
     const hudRect = el.hud.getBoundingClientRect();
     const zoomRect = $("#zoomControls").getBoundingClientRect();
-    game.renderer.topInset = hudRect.bottom + 28;
-    game.renderer.bottomInset = rect.height - zoomRect.top + 28;
+    game.renderer.topInset = hudRect.bottom + 14;
+    game.renderer.bottomInset = rect.height - zoomRect.top + 14;
     game.resizeToContainer(rect.width, rect.height);
   }
   window.addEventListener("resize", fitCanvas);
