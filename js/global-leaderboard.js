@@ -27,9 +27,13 @@ window.MJ = window.MJ || {};
     }
   }
 
-  async function addEntry(layoutKey, entry) {
+  function collectionName(layoutKey, difficulty) {
+    return `leaderboard_${layoutKey}_${difficulty}`;
+  }
+
+  async function addEntry(layoutKey, difficulty, entry) {
     if (!db) return;
-    await db.collection(`leaderboard_${layoutKey}`).add({
+    await db.collection(collectionName(layoutKey, difficulty)).add({
       name: entry.name,
       timeMs: entry.timeMs,
       moves: entry.moves,
@@ -38,9 +42,9 @@ window.MJ = window.MJ || {};
     });
   }
 
-  async function getTopEntries(layoutKey, max = 20) {
+  async function getTopEntries(layoutKey, difficulty, max = 20) {
     if (!db) return [];
-    const snap = await db.collection(`leaderboard_${layoutKey}`).orderBy("timeMs", "asc").limit(max).get();
+    const snap = await db.collection(collectionName(layoutKey, difficulty)).orderBy("timeMs", "asc").limit(max).get();
     return snap.docs.map((d) => d.data());
   }
 

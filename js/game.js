@@ -229,7 +229,7 @@ window.MJ = window.MJ || {};
     _onWin() {
       this.finished = true;
       const timeMs = Math.round(this.elapsedMs());
-      this.cb.onWin && this.cb.onWin({ timeMs, moves: this.movesCount, hints: this.hintsUsed, layoutKey: this.layoutKey });
+      this.cb.onWin && this.cb.onWin({ timeMs, moves: this.movesCount, hints: this.hintsUsed, layoutKey: this.layoutKey, difficulty: this.difficulty });
       Audio.play("win");
     }
 

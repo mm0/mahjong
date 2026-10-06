@@ -37,6 +37,7 @@
     btnClearBoard: $("#btnClearBoard"),
     btnCloseSettings: $("#btnCloseSettings"),
     lbSourceToggle: $("#lbSourceToggle"),
+    lbDifficultyTabs: $("#lbDifficultyTabs"),
     lbLayoutTabs: $("#lbLayoutTabs"),
     lbList: $("#lbList"),
     btnCloseLeaderboard: $("#btnCloseLeaderboard"),
@@ -55,7 +56,7 @@
     versionTag: $("#versionTag"),
   };
 
-  const APP_VERSION = "13"; // keep in sync with VERSION in sw.js
+  const APP_VERSION = "14"; // keep in sync with VERSION in sw.js
   el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
@@ -269,6 +270,7 @@
 
   // ---------- leaderboard ----------
   let lbActiveLayout = "turtle";
+  let lbActiveDifficulty = "medium";
   let lbSource = "local";
   let lbRequestToken = 0;
   function buildLbTabs() {
@@ -279,6 +281,16 @@
       btn.textContent = Layouts[key].name;
       btn.addEventListener("click", () => { lbActiveLayout = key; buildLbTabs(); renderLeaderboard(); });
       el.lbLayoutTabs.appendChild(btn);
+    });
+  }
+  function buildLbDifficultyTabs() {
+    Array.from(el.lbDifficultyTabs.querySelectorAll(".segBtn")).forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.difficulty === lbActiveDifficulty);
+      btn.onclick = () => {
+        lbActiveDifficulty = btn.dataset.difficulty;
+        buildLbDifficultyTabs();
+        renderLeaderboard();
+      };
     });
   }
   function buildLbSourceToggle() {
@@ -305,13 +317,14 @@
   }
   function renderLeaderboard() {
     if (lbSource === "local") {
-      renderEntries(Leaderboard.getEntries(lbActiveLayout));
+      renderEntries(Leaderboard.getEntries(lbActiveLayout, lbActiveDifficulty));
       return;
     }
     el.lbList.innerHTML = `<li class="lbEmpty">Loading…</li>`;
     const token = ++lbRequestToken;
     const layoutAtRequest = lbActiveLayout;
-    GlobalLeaderboard.getTopEntries(layoutAtRequest)
+    const difficultyAtRequest = lbActiveDifficulty;
+    GlobalLeaderboard.getTopEntries(layoutAtRequest, difficultyAtRequest)
       .then((entries) => {
         if (token !== lbRequestToken) return; // a newer tab/layout switch already superseded this
         renderEntries(entries);
@@ -324,12 +337,14 @@
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
   el.btnLeaderboard.addEventListener("click", () => {
-    // Default to whichever layout is currently selected on the menu (which,
-    // right after a win, is still the layout that was just played) instead
-    // of always landing on Turtle — otherwise a score saved for any other
-    // layout looks "missing" until you manually switch tabs.
+    // Default to whichever layout/difficulty is currently selected on the
+    // menu (which, right after a win, is still what was just played)
+    // instead of always landing on Turtle/Medium — otherwise a score saved
+    // for any other combo looks "missing" until you manually switch tabs.
     lbActiveLayout = selectedLayout;
+    lbActiveDifficulty = selectedDifficulty;
     buildLbTabs();
+    buildLbDifficultyTabs();
     buildLbSourceToggle();
     renderLeaderboard();
     showScreen(el.screenLeaderboard);
@@ -361,11 +376,11 @@
   function handleWin(result) {
     showHud(false);
     hideStuckBanner();
-    const priorEntries = Leaderboard.getEntries(result.layoutKey);
+    const priorEntries = Leaderboard.getEntries(result.layoutKey, result.difficulty);
     const isRecord = priorEntries.length === 0 || result.timeMs < priorEntries[0].timeMs;
     el.winMessage.textContent = pickWinMessage(result, isRecord);
     el.winSummary.textContent = `${Layouts[result.layoutKey].name} · ${fmtTime(result.timeMs)} · ${result.moves} moves · ${result.hints} hints used`;
-    const qualifies = Leaderboard.qualifies(result.layoutKey, result.timeMs);
+    const qualifies = Leaderboard.qualifies(result.layoutKey, result.difficulty, result.timeMs);
     el.winScoreForm.hidden = !qualifies;
     pendingWin = result;
     if (qualifies) el.winName.value = prefs.lastName || "";
@@ -375,8 +390,8 @@
     const name = (el.winName.value || "Player").trim().slice(0, 16) || "Player";
     prefs.lastName = name; savePrefs();
     const entry = { name, timeMs: pendingWin.timeMs, moves: pendingWin.moves, date: Date.now() };
-    Leaderboard.addEntry(pendingWin.layoutKey, entry);
-    GlobalLeaderboard.addEntry(pendingWin.layoutKey, entry).catch(() => {});
+    Leaderboard.addEntry(pendingWin.layoutKey, pendingWin.difficulty, entry);
+    GlobalLeaderboard.addEntry(pendingWin.layoutKey, pendingWin.difficulty, entry).catch(() => {});
     el.winScoreForm.hidden = true;
   });
   el.btnWinPlayAgain.addEventListener("click", () => startNewGame());
