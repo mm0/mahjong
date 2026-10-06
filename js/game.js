@@ -378,7 +378,10 @@ window.MJ = window.MJ || {};
 
     zoomBy(factor, aroundCenter = true) {
       const r = this.renderer;
-      const cx = this.canvas.clientWidth / 2, cy = this.canvas.clientHeight / 2;
+      const cx = this.canvas.clientWidth / 2;
+      const visibleTop = r.topInset || 0;
+      const visibleBottom = this.canvas.clientHeight - (r.bottomInset || 0);
+      const cy = (visibleTop + visibleBottom) / 2;
       const before = r.screenToWorld(cx, cy);
       r.zoom = Math.min(r.maxZoom, Math.max(r.minZoom, r.zoom * factor));
       const after = r.screenToWorld(cx, cy);

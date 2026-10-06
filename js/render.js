@@ -123,10 +123,16 @@ window.MJ = window.MJ || {};
     clampPan(tiles) {
       const b = this.boardBounds(tiles);
       const margin = 120;
+      // Keep panning relative to the area actually free of the HUD and zoom
+      // controls, not the raw canvas edges — otherwise the board can be
+      // dragged/zoomed until tiles sit behind the HUD at the top while a
+      // large dead strip opens up below the last row at the bottom.
+      const topInset = this.topInset || 0;
+      const bottomInset = this.bottomInset || 0;
       const minPanX = this.cssW - (b.maxX * this.zoom) - margin;
       const maxPanX = -b.minX * this.zoom + margin;
-      const minPanY = this.cssH - (b.maxY * this.zoom) - margin;
-      const maxPanY = -b.minY * this.zoom + margin;
+      const minPanY = (this.cssH - bottomInset) - (b.maxY * this.zoom) - margin;
+      const maxPanY = topInset - b.minY * this.zoom + margin;
       this.panX = Math.min(Math.max(this.panX, Math.min(minPanX, maxPanX)), Math.max(minPanX, maxPanX));
       this.panY = Math.min(Math.max(this.panY, Math.min(minPanY, maxPanY)), Math.max(minPanY, maxPanY));
     }

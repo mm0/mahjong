@@ -54,7 +54,7 @@
     versionTag: $("#versionTag"),
   };
 
-  const APP_VERSION = "10"; // keep in sync with VERSION in sw.js
+  const APP_VERSION = "11"; // keep in sync with VERSION in sw.js
   el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
