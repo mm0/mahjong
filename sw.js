@@ -3,7 +3,7 @@
 // on every deploy that changes any cached asset — that's what makes the
 // browser notice this file differs and kick off the update-available flow
 // in main.js (see the SKIP_WAITING message handler below).
-const VERSION = "14";
+const VERSION = "15";
 const CACHE_NAME = `jade-mahjong-v${VERSION}`;
 const ASSETS = [
   "./",

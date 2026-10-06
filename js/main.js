@@ -56,7 +56,7 @@
     versionTag: $("#versionTag"),
   };
 
-  const APP_VERSION = "14"; // keep in sync with VERSION in sw.js
+  const APP_VERSION = "15"; // keep in sync with VERSION in sw.js
   el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
@@ -425,7 +425,13 @@
   // ---------- PWA service worker + update notification ----------
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").then((reg) => {
+      // updateViaCache: 'none' is the actual fix for "it never notices a
+      // new version" — without it, register()/update() can be satisfied by
+      // the browser's ordinary HTTP cache for sw.js itself (subject to
+      // whatever Cache-Control the host sends), so the byte-compare that
+      // detects a new version never even sees the new file. This forces
+      // every check to hit the network.
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
         const showUpdateBannerFor = (worker) => {
           el.updateBanner.hidden = false;
           el.btnUpdateReload.onclick = () => {
