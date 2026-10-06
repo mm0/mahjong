@@ -99,7 +99,7 @@ window.MJ = window.MJ || {};
       // Solitaire apps do — only fall back to "fit everything" on wider
       // screens (tablet/desktop) where that size is already comfortable.
       const isPhone = this.cssW < 700;
-      const COMFORTABLE_TILE_W = 50; // CSS px
+      const COMFORTABLE_TILE_W = 64; // CSS px
       const comfortableZoom = COMFORTABLE_TILE_W / TILE_W;
       const z = (isPhone ? Math.max(fitAllZoom, comfortableZoom) : fitAllZoom) * this.sizeScale;
 

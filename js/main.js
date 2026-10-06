@@ -54,7 +54,7 @@
     versionTag: $("#versionTag"),
   };
 
-  const APP_VERSION = "7"; // keep in sync with VERSION in sw.js
+  const APP_VERSION = "8"; // keep in sync with VERSION in sw.js
   el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
@@ -85,13 +85,21 @@
   });
   window.__MJ_GAME__ = game; // debug/test hook
 
-  const TILE_SIZE_SCALES = { small: 0.82, medium: 1, large: 1.18, xl: 1.38 };
+  const TILE_SIZE_SCALES = { small: 0.92, medium: 1.1, large: 1.3, xl: 1.55 };
   game.renderer.style = prefs.style || "3d";
   game.renderer.sizeScale = TILE_SIZE_SCALES[prefs.tileSize] || TILE_SIZE_SCALES.large;
   Audio.setEnabled(prefs.sound !== false);
   Music.setEnabled(prefs.music !== false);
 
   function fitCanvas() {
+    // On iOS Safari, focusing a text input (e.g. the leaderboard name field)
+    // shrinks the visual viewport to make room for the keyboard and fires a
+    // "resize" event. If we re-measured and resized the canvas then, the
+    // board would permanently shrink to the keyboard-open size — and it
+    // would compound every time the player won and typed their name. Skip
+    // resizing while any input/textarea has focus; the blur handler below
+    // re-fits once the keyboard closes.
+    if (document.activeElement && /^(input|textarea)$/i.test(document.activeElement.tagName)) return;
     const rect = el.board.parentElement.getBoundingClientRect();
     const hudRect = el.hud.getBoundingClientRect();
     const zoomRect = $("#zoomControls").getBoundingClientRect();
@@ -101,6 +109,9 @@
   }
   window.addEventListener("resize", fitCanvas);
   window.addEventListener("orientationchange", () => setTimeout(fitCanvas, 200));
+  document.addEventListener("focusout", (e) => {
+    if (/^(input|textarea)$/i.test(e.target.tagName)) setTimeout(fitCanvas, 200);
+  });
   fitCanvas();
 
   function fmtTime(ms) {
