@@ -54,7 +54,7 @@
     versionTag: $("#versionTag"),
   };
 
-  const APP_VERSION = "9"; // keep in sync with VERSION in sw.js
+  const APP_VERSION = "10"; // keep in sync with VERSION in sw.js
   el.versionTag.textContent = `v${APP_VERSION}`;
 
   const LAYOUT_GLYPH = { turtle: "🐢", pyramid: "🔺", fortress: "🏰", diamond: "💎", dragongate: "⛩️", hourglass: "⏳" };
@@ -174,8 +174,12 @@
   function openMenu() {
     game.pause();
     showHud(false);
-    el.continueHint.hidden = !gameStarted;
-    showScreen(el.screenMenu);
+    if (gameStarted && !game.finished) {
+      showScreen(el.screenPause);
+    } else {
+      el.continueHint.hidden = !gameStarted;
+      showScreen(el.screenMenu);
+    }
   }
 
   function startNewGame() {
