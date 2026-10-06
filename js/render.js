@@ -89,23 +89,7 @@ window.MJ = window.MJ || {};
 
     fitToScreen(tiles, padding = 24) {
       const b = this.boardBounds(tiles);
-      const zx = (this.cssW - padding * 2) / b.w;
-      const zy = (this.cssH - padding * 2) / b.h;
-      const fitAllZoom = Math.max(0.28, Math.min(zx, zy));
-
-      // On phone-sized screens, cramming the whole 144-tile board into view
-      // makes tiles illegibly tiny. Prefer a legible minimum tile size and
-      // let the player pan/pinch to see the rest, like real mobile Mahjong
-      // Solitaire apps do — only fall back to "fit everything" on wider
-      // screens (tablet/desktop) where that size is already comfortable.
       const isPhone = this.cssW < 700;
-      const COMFORTABLE_TILE_W = 64; // CSS px
-      const comfortableZoom = COMFORTABLE_TILE_W / TILE_W;
-      const z = (isPhone ? Math.max(fitAllZoom, comfortableZoom) : fitAllZoom) * this.sizeScale;
-
-      this.minZoom = Math.min(fitAllZoom, z) * 0.85;
-      this.maxZoom = Math.max(2.6, z * 3.2);
-      this.zoom = z;
 
       // Fit within the area actually visible between the HUD bar and the
       // zoom controls, not the full canvas — otherwise on phones the board
@@ -113,6 +97,30 @@ window.MJ = window.MJ || {};
       const topInset = isPhone ? this.topInset || 100 : 0;
       const bottomInset = isPhone ? this.bottomInset || 110 : 0;
       const visibleH = Math.max(100, this.cssH - topInset - bottomInset);
+
+      const zx = (this.cssW - padding * 2) / b.w;
+      const zy = (visibleH - padding * 2) / b.h;
+      const fitAllZoom = Math.max(0.28, Math.min(zx, zy));
+
+      // On phone-sized screens, cramming the whole 144-tile board into view
+      // makes tiles illegibly tiny. Prefer a legible minimum tile size and
+      // let the player pan/pinch to see the rest, like real mobile Mahjong
+      // Solitaire apps do — only fall back to "fit everything" on wider
+      // screens (tablet/desktop) where that size is already comfortable.
+      const COMFORTABLE_TILE_W = 64; // CSS px
+      const comfortableZoom = COMFORTABLE_TILE_W / TILE_W;
+      // sizeScale only raises the comfortable-minimum floor, never the
+      // fit-all zoom — a board that already fits the screen (e.g. Pyramid)
+      // scales up to fill the available space exactly, rather than being
+      // inflated/shrunk past that point and left floating in dead margin.
+      const z = isPhone
+        ? Math.max(fitAllZoom, comfortableZoom * this.sizeScale)
+        : fitAllZoom * this.sizeScale;
+
+      this.minZoom = Math.min(fitAllZoom, z) * 0.85;
+      this.maxZoom = Math.max(2.6, z * 3.2);
+      this.zoom = z;
+
       const boardHZoomed = b.h * z;
       this.panX = (this.cssW - b.w * z) / 2 - b.minX * z;
       this.panY = boardHZoomed > visibleH
